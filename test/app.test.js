@@ -28,6 +28,15 @@ test('health endpoint and guarded profile route respond without database startup
   assert.equal(profile.status, 401);
   assert.deepEqual(await profile.json(), { error: 'Authentication required' });
 
+  for (const path of [
+    '/api/users/search?q=person',
+    '/api/conversations',
+    '/api/conversations/507f1f77bcf86cd799439011/messages'
+  ]) {
+    const response = await fetch(`${origin}${path}`);
+    assert.equal(response.status, 401, `${path} must require authentication`);
+  }
+
   const invalidRegistration = await fetch(`${origin}/api/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

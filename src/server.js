@@ -2,13 +2,22 @@ import { createServer } from 'node:http';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import { createApp, createSocketAuthenticator } from './app.js';
+import { getConversationForParticipant, createMessage } from './chat-service.js';
 import { loadConfig } from './config.js';
+import { HttpError } from './errors.js';
 
 const config = loadConfig();
 await mongoose.connect(config.mongoUri);
 
-const httpServer = createServer(createApp(config));
-const io = new Server(httpServer, {
+let io;
+const httpServer = createServer(createApp(config, {
+  emitMessage(_conversationId, message, participantIds) {
+    for (const participantId of participantIds) {
+      io?.to(`user:${participantId}`).emit('message:new', message);
+    }
+  }
+}));
+io = new Server(httpServer, {
   cors: {
     origin: config.allowedOrigins
   }
@@ -17,6 +26,53 @@ const io = new Server(httpServer, {
 io.use(createSocketAuthenticator(config));
 io.on('connection', (socket) => {
   socket.join(`user:${socket.data.userId}`);
+  const recentMessages = [];
+
+  socket.on('conversation:join', async (payload, acknowledge = () => {}) => {
+    try {
+      const conversation = await getConversationForParticipant(
+        socket.data.userId,
+        payload?.conversationId
+      );
+      socket.join(`conversation:${conversation.id}`);
+      acknowledge({ ok: true });
+    } catch (error) {
+      acknowledge({ ok: false, error: error.message });
+    }
+  });
+
+  socket.on('message:send', async (payload, acknowledge = () => {}) => {
+    const now = Date.now();
+    while (recentMessages.length > 0 && now - recentMessages[0] > 10_000) {
+      recentMessages.shift();
+    }
+    if (recentMessages.length >= 30) {
+      acknowledge({ ok: false, error: 'Message rate limit exceeded' });
+      return;
+    }
+    recentMessages.push(now);
+
+    try {
+      const message = await createMessage(
+        socket.data.userId,
+        payload?.conversationId,
+        payload?.content
+      );
+      const conversation = await getConversationForParticipant(
+        socket.data.userId,
+        message.conversationId
+      );
+      for (const participant of conversation.participants) {
+        io.to(`user:${participant.toString()}`).emit('message:new', message);
+      }
+      acknowledge({ ok: true, message });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof HttpError ? error.message : 'Unable to send message'
+      });
+    }
+  });
 });
 
 httpServer.listen(config.port, () => {

@@ -3,7 +3,9 @@
 Node.js 20+ / Express API with MongoDB/Mongoose-backed account registration,
 login, short-lived JWT access tokens, rotating refresh tokens, and an
 authenticated profile endpoint. This is the first implementation phase, not a
-complete chat backend. Messaging, FCM, WebRTC, location sharing, groups,
+complete chat backend. Direct conversations, persisted text messages,
+participant-authorized REST APIs, authenticated Socket.IO delivery, and public
+user search are implemented. FCM, WebRTC, location sharing, groups,
 attachments, and E2EE are not implemented.
 
 ## Run locally
@@ -60,6 +62,11 @@ If you select the Node runtime instead of Docker, use:
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout` (bearer access token required)
 - `GET /api/users/me` (bearer access token required)
+- `GET /api/users/search?q=<query>` (bearer access token required)
+- `GET /api/conversations` (bearer access token required)
+- `POST /api/conversations` (bearer access token required)
+- `GET /api/conversations/:conversationId/messages` (bearer access token required)
+- `POST /api/conversations/:conversationId/messages` (bearer access token required)
 - `GET /health`
 
 See [`API.md`](../docs/API.md) and [`SECURITY.md`](../docs/SECURITY.md).

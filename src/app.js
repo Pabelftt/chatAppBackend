@@ -6,6 +6,14 @@ import { createAuthRouter } from './routes/auth.js';
 import { verifyAccessToken } from './auth.js';
 import { HttpError, errorHandler } from './errors.js';
 import { User } from './models/user.js';
+import {
+  createDirectConversation,
+  createMessage,
+  getConversationForParticipant,
+  listConversations,
+  listMessages,
+  searchUsers
+} from './chat-service.js';
 
 function createAuthenticator(config) {
   return (request, _response, next) => {
@@ -25,7 +33,7 @@ function createAuthenticator(config) {
   };
 }
 
-export function createApp(config) {
+export function createApp(config, { emitMessage } = {}) {
   const app = express();
   const authenticate = createAuthenticator(config);
 
@@ -69,6 +77,65 @@ export function createApp(config) {
         username: user.username,
         displayName: user.displayName
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/users/search', authenticate, async (request, response, next) => {
+    try {
+      response.json(await searchUsers(request.user.id, request.query.q));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/conversations', authenticate, async (request, response, next) => {
+    try {
+      response.json(await listConversations(request.user.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/conversations', authenticate, async (request, response, next) => {
+    try {
+      const conversation = await createDirectConversation(
+        request.user.id,
+        request.body?.participantId
+      );
+      response.status(201).json(conversation);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/conversations/:conversationId/messages', authenticate, async (request, response, next) => {
+    try {
+      response.json(await listMessages(
+        request.user.id,
+        request.params.conversationId,
+        request.query.limit
+      ));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/conversations/:conversationId/messages', authenticate, async (request, response, next) => {
+    try {
+      const message = await createMessage(
+        request.user.id,
+        request.params.conversationId,
+        request.body?.content
+      );
+      const conversation = await getConversationForParticipant(request.user.id, message.conversationId);
+      emitMessage?.(
+        message.conversationId,
+        message,
+        conversation.participants.map((participant) => participant.toString())
+      );
+      response.status(201).json(message);
     } catch (error) {
       next(error);
     }
