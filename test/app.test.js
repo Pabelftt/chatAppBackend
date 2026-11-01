@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { createApp, createSocketAuthenticator } from '../src/app.js';
+import jwt from 'jsonwebtoken';
+
+const config = {
+  accessSecret: 'test-access-secret-that-is-long-enough-123456',
+  refreshSecret: 'test-refresh-secret-that-is-long-enough-123456',
+  accessTokenTtl: '15m',
+  refreshTokenDays: 30,
+  allowedOrigins: ['http://localhost:3000']
+};
+
+test('health endpoint and guarded profile route respond without database startup', async (context) => {
+  const server = createServer(createApp(config));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  context.after(() => new Promise((resolve, reject) =>
+    server.close((error) => error ? reject(error) : resolve())
+  ));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+
+  const health = await fetch(`${origin}/health`);
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: 'ok' });
+
+  const profile = await fetch(`${origin}/api/users/me`);
+  assert.equal(profile.status, 401);
+  assert.deepEqual(await profile.json(), { error: 'Authentication required' });
+
+  const invalidRegistration = await fetch(`${origin}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: { $ne: null }, password: 'bad' })
+  });
+  assert.equal(invalidRegistration.status, 400);
+});
+
+test('socket authentication only accepts valid signed access tokens', () => {
+  const authenticate = createSocketAuthenticator(config);
+  const token = jwt.sign({ sub: 'user-id' }, config.accessSecret, { algorithm: 'HS256' });
+  const socket = { handshake: { auth: { token } }, data: {} };
+
+  authenticate(socket, (error) => assert.equal(error, undefined));
+  assert.equal(socket.data.userId, 'user-id');
+
+  authenticate({ handshake: { auth: {} }, data: {} }, (error) => {
+    assert.match(error.message, /Authentication required/);
+  });
+});
