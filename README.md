@@ -16,16 +16,24 @@ attachments, and E2EE are not implemented.
 4. Run `npm ci`, `npm test`, and `npm start`.
 5. Check `GET http://localhost:3000/health`.
 
-## Render deployment
+## Render deployment with Docker
 
-Create a Web Service for this repository with:
+Create a Render Web Service using the Docker runtime:
 
-- **Root directory:** blank
-- **Build command:** `npm ci && npm test`
-- **Start command:** `npm start`
+- **Repository:** `https://github.com/Pavelprfb/chatAppBackend`
+- **Branch:** `main`
+- **Root directory:** blank (the Dockerfile is at the repository root)
+- **Dockerfile path:** `./Dockerfile`
 - **Health check path:** `/health`
 
-Set these Render environment variables before deployment:
+The Docker image runs the backend tests during its build, includes only
+production dependencies in the final image, runs as the unprivileged `node`
+user, and exposes the `/health` endpoint as its container health check. Do not
+set separate build or start commands for the Docker runtime.
+
+Render supplies `PORT`; the container uses that port at runtime.
+
+Set these Render environment variables before deploying:
 
 - `NODE_ENV=production`
 - `MONGODB_URI` — an authenticated MongoDB connection string reachable from
@@ -36,8 +44,14 @@ Set these Render environment variables before deployment:
   Android apps do not require browser CORS access
 - Optionally `ACCESS_TOKEN_TTL=15m` and `REFRESH_TOKEN_DAYS=30`
 
-Render supplies `PORT`. The service binds to the default network interface.
 Never commit `.env`, MongoDB credentials, or signing/service-account files.
+
+### Alternative: Render Node runtime
+
+If you select the Node runtime instead of Docker, use:
+
+- **Build command:** `npm ci && npm test`
+- **Start command:** `npm start`
 
 ## Implemented API
 
