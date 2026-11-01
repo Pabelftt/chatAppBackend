@@ -24,6 +24,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: 80
     },
+    usernameSearch: {
+      type: String,
+      select: false
+    },
+    displayNameSearch: {
+      type: String,
+      select: false
+    },
     passwordHash: {
       type: String,
       required: true,
@@ -32,5 +40,16 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.index({ usernameSearch: 1 });
+userSchema.index({ displayNameSearch: 1 });
+userSchema.pre('validate', function updateSearchFields() {
+  if (this.username !== undefined) {
+    this.usernameSearch = this.username.toLowerCase();
+  }
+  if (this.displayName !== undefined) {
+    this.displayNameSearch = this.displayName.trim().toLowerCase();
+  }
+});
 
 export const User = mongoose.model('User', userSchema);

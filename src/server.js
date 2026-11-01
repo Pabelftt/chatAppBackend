@@ -5,9 +5,24 @@ import { createApp, createSocketAuthenticator } from './app.js';
 import { getConversationForParticipant, createMessage } from './chat-service.js';
 import { loadConfig } from './config.js';
 import { HttpError } from './errors.js';
+import { User } from './models/user.js';
 
 const config = loadConfig();
 await mongoose.connect(config.mongoUri);
+await User.updateMany(
+  {
+    $or: [
+      { usernameSearch: { $exists: false } },
+      { displayNameSearch: { $exists: false } }
+    ]
+  },
+  [{
+    $set: {
+      usernameSearch: { $toLower: '$username' },
+      displayNameSearch: { $toLower: { $trim: { input: '$displayName' } } }
+    }
+  }]
+);
 
 let io;
 const httpServer = createServer(createApp(config, {

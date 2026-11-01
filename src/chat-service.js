@@ -41,8 +41,8 @@ export async function searchUsers(userId, query) {
   const users = await User.find({
     _id: { $ne: userId },
     $or: [
-      { username: { $regex: safeQuery, $options: 'i' } },
-      { displayName: { $regex: safeQuery, $options: 'i' } }
+      { usernameSearch: { $regex: `^${safeQuery.toLowerCase()}` } },
+      { displayNameSearch: { $regex: `^${safeQuery.toLowerCase()}` } }
     ]
   })
     .select('username displayName')

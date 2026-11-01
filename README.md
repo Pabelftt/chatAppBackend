@@ -1,12 +1,11 @@
 # ChatApp Backend
 
 Node.js 20+ / Express API with MongoDB/Mongoose-backed account registration,
-login, short-lived JWT access tokens, rotating refresh tokens, and an
-authenticated profile endpoint. This is the first implementation phase, not a
-complete chat backend. Direct conversations, persisted text messages,
-participant-authorized REST APIs, authenticated Socket.IO delivery, and public
-user search are implemented. FCM, WebRTC, location sharing, groups,
-attachments, and E2EE are not implemented.
+login, short-lived JWT access tokens, rotating refresh tokens, direct
+conversations, persisted text messages, participant-authorized REST APIs, and
+authenticated Socket.IO delivery. User search uses normalized, indexed
+username and display-name prefixes. FCM, WebRTC calls, location sharing,
+groups, attachments, and E2EE are not implemented.
 
 ## Run locally
 
@@ -68,6 +67,11 @@ If you select the Node runtime instead of Docker, use:
 - `GET /api/conversations/:conversationId/messages` (bearer access token required)
 - `POST /api/conversations/:conversationId/messages` (bearer access token required)
 - `GET /health`
+
+Socket.IO clients authenticate with an access token in the connection `auth`
+payload. The server emits `message:new` to both conversation participants when
+a message is persisted. Realtime delivery requires an active connection;
+conversation and message history remain available through the REST APIs.
 
 See [`API.md`](../docs/API.md) and [`SECURITY.md`](../docs/SECURITY.md).
 The Android client is maintained in the separate `chatAppAndroid` repository.
