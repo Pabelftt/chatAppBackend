@@ -3,9 +3,10 @@
 Node.js 20+ / Express API with MongoDB/Mongoose-backed account registration,
 login, short-lived JWT access tokens, rotating refresh tokens, direct
 conversations, persisted text messages, participant-authorized REST APIs, and
-authenticated Socket.IO delivery. User search uses normalized, indexed
-username and display-name prefixes. FCM, WebRTC calls, location sharing,
-groups, attachments, and E2EE are not implemented.
+authenticated Socket.IO delivery and authenticated WebRTC call signaling.
+User search uses normalized, indexed username and display-name prefixes.
+FCM/background call notifications, location sharing, groups, attachments, and
+E2EE are not implemented.
 
 ## Run locally
 
@@ -44,6 +45,10 @@ Set these Render environment variables before deploying:
 - `CORS_ORIGIN` — comma-separated, explicitly permitted browser origins; native
   Android apps do not require browser CORS access
 - Optionally `ACCESS_TOKEN_TTL=15m` and `REFRESH_TOKEN_DAYS=30`
+- For calls across restrictive NATs, configure `TURN_SERVER_URL`,
+  `TURN_USERNAME`, and `TURN_PASSWORD` together. Use a TURN provider and
+  short-lived credentials for production; STUN-only calls are not reliable on
+  every network.
 
 Never commit `.env`, MongoDB credentials, or signing/service-account files.
 
@@ -72,6 +77,13 @@ Socket.IO clients authenticate with an access token in the connection `auth`
 payload. The server emits `message:new` to both conversation participants when
 a message is persisted. Realtime delivery requires an active connection;
 conversation and message history remain available through the REST APIs.
+
+Authenticated sockets also support `call:prepare`, `call:start`, `call:accept`,
+`call:decline`, `call:end`, and `call:ice`. The backend checks conversation membership and
+routes call setup, ICE candidates, and TURN configuration only to participants.
+WebRTC carries audio/video peer-to-peer or through a configured TURN relay.
+The app must be open on both devices; background ringing and FCM notifications
+are not implemented.
 
 See [`API.md`](../docs/API.md) and [`SECURITY.md`](../docs/SECURITY.md).
 The Android client is maintained in the separate `chatAppAndroid` repository.

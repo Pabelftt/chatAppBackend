@@ -56,7 +56,29 @@ message sends also fan out as `message:new`.
 Supply `Authorization: Bearer <accessToken>` for protected routes. The API
 validates inputs and does not accept client-supplied MongoDB query objects.
 
+## Audio/video call signaling
+
+Authenticated sockets first request ICE configuration with `call:prepare` and
+`{ "conversationId": "..." }`. Conversation membership is checked before the
+server returns STUN/TURN settings. Start a call with `call:start` and
+`{ "conversationId": "...", "mediaType": "audio|video", "offer": { "type":
+"offer", "sdp": "..." } }`. The other participant receives `call:incoming`
+with the offer and ICE servers.
+
+The recipient responds with `call:accept` and
+`{ "callId": "...", "answer": { "type": "answer", "sdp": "..." } }`.
+`call:ice` exchanges bounded ICE candidates; `call:decline` and `call:end`
+terminate the call. Call signaling and participant authorization are handled
+by the backend; WebRTC transports audio/video between the two devices, directly
+or through TURN.
+
+Configure `TURN_SERVER_URL`, `TURN_USERNAME`, and `TURN_PASSWORD` together for
+networks that require TURN relaying. Use short-lived credentials for
+production. Incoming calls are delivered only to active app connections;
+background ringing and FCM notifications are not implemented.
+
 ## Not implemented yet
 
-Devices/FCM, calls, location, groups, attachments, offline Android storage,
-delivery/read receipts, and E2EE are future phases, not available features.
+Devices/FCM and background call notifications, location, groups, attachments,
+offline Android sending, delivery/read receipts, and E2EE are future phases,
+not available features.

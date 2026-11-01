@@ -11,7 +11,10 @@ test('requires explicit origins and sufficiently long independent secrets', () =
     'JWT_REFRESH_SECRET',
     'ACCESS_TOKEN_TTL',
     'REFRESH_TOKEN_DAYS',
-    'CORS_ORIGIN'
+    'CORS_ORIGIN',
+    'TURN_SERVER_URL',
+    'TURN_USERNAME',
+    'TURN_PASSWORD'
   ];
   const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
 
@@ -24,6 +27,14 @@ test('requires explicit origins and sufficiently long independent secrets', () =
     delete process.env.REFRESH_TOKEN_DAYS;
 
     assert.equal(loadConfig().port, 3000);
+    process.env.TURN_SERVER_URL = 'turns:turn.example.com:5349';
+    process.env.TURN_USERNAME = 'chatapp';
+    process.env.TURN_PASSWORD = 'temporary-password';
+    assert.equal(loadConfig().turnServerUrl, 'turns:turn.example.com:5349');
+    delete process.env.TURN_PASSWORD;
+    assert.throws(() => loadConfig(), /Configure TURN_SERVER_URL/);
+    delete process.env.TURN_SERVER_URL;
+    delete process.env.TURN_USERNAME;
     process.env.CORS_ORIGIN = '*';
     assert.throws(() => loadConfig(), /explicit allowed origins/);
     process.env.CORS_ORIGIN = 'http://localhost:3000';

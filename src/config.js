@@ -11,6 +11,9 @@ function required(name, minimumLength = 1) {
 export function loadConfig() {
   const port = Number(process.env.PORT ?? 3000);
   const refreshTokenDays = Number(process.env.REFRESH_TOKEN_DAYS ?? 30);
+  const turnServerUrl = process.env.TURN_SERVER_URL?.trim() || null;
+  const turnUsername = process.env.TURN_USERNAME?.trim() || null;
+  const turnPassword = process.env.TURN_PASSWORD?.trim() || null;
   const allowedOrigins = required('CORS_ORIGIN')
     .split(',')
     .map((origin) => origin.trim())
@@ -24,6 +27,11 @@ export function loadConfig() {
   }
   if (allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
     throw new Error('CORS_ORIGIN must contain explicit allowed origins');
+  }
+  if ([turnServerUrl, turnUsername, turnPassword].some(Boolean)
+    && (!turnServerUrl || !turnUsername || !turnPassword
+      || !/^turns?:/i.test(turnServerUrl))) {
+    throw new Error('Configure TURN_SERVER_URL, TURN_USERNAME, and TURN_PASSWORD together');
   }
 
   const accessSecret = required('JWT_ACCESS_SECRET', 32);
@@ -43,6 +51,9 @@ export function loadConfig() {
     refreshSecret,
     accessTokenTtl: process.env.ACCESS_TOKEN_TTL ?? '15m',
     refreshTokenDays,
-    allowedOrigins
+    allowedOrigins,
+    turnServerUrl,
+    turnUsername,
+    turnPassword
   };
 }

@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import { createApp, createSocketAuthenticator } from './app.js';
+import { attachCallSignaling } from './call-signaling.js';
 import { getConversationForParticipant, createMessage } from './chat-service.js';
 import { loadConfig } from './config.js';
 import { HttpError } from './errors.js';
@@ -39,8 +40,30 @@ io = new Server(httpServer, {
 });
 
 io.use(createSocketAuthenticator(config));
+const activeCalls = new Map();
+const callAttempts = new Map();
 io.on('connection', (socket) => {
   socket.join(`user:${socket.data.userId}`);
+  attachCallSignaling(io, socket, {
+    getConversation: getConversationForParticipant,
+    getPublicUser: async (id) => {
+      const user = await User.findById(id).select('username displayName');
+      if (!user) throw new HttpError(404, 'User not found');
+      return { id: user.id, username: user.username, displayName: user.displayName };
+    },
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      ...(config.turnServerUrl
+        ? [{
+            urls: config.turnServerUrl,
+            username: config.turnUsername,
+            credential: config.turnPassword
+          }]
+        : [])
+    ],
+    callRegistry: activeCalls,
+    callAttempts
+  });
   const recentMessages = [];
 
   socket.on('conversation:join', async (payload, acknowledge = () => {}) => {
