@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import { createApp, createSocketAuthenticator } from './app.js';
 import { attachCallSignaling } from './call-signaling.js';
+import { attachTypingSignaling } from './typing-signaling.js';
 import { getConversationForParticipant, createMessage } from './chat-service.js';
 import { loadConfig } from './config.js';
 import { HttpError } from './errors.js';
@@ -44,6 +45,7 @@ const activeCalls = new Map();
 const callAttempts = new Map();
 io.on('connection', (socket) => {
   socket.join(`user:${socket.data.userId}`);
+  attachTypingSignaling(io, socket, getConversationForParticipant);
   attachCallSignaling(io, socket, {
     getConversation: getConversationForParticipant,
     getPublicUser: async (id) => {

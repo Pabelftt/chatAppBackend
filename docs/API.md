@@ -49,6 +49,9 @@ Connect Socket.IO with the access token in the handshake auth object:
   devices as `message:new`.
 - `message:new` — server event containing the persisted message and public
   sender profile.
+- `typing:start` / `typing:stop` — `{ "conversationId": "..." }`; membership
+  is checked and the other participant receives `typing:started` /
+  `typing:stopped`. Typing automatically expires after five seconds.
 
 The socket event is limited to 30 sends per 10 seconds per connection. REST
 message sends also fan out as `message:new`.
