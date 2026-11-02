@@ -14,6 +14,13 @@ export function errorHandler(error, _request, response, _next) {
     return response.status(400).json({ error: 'Request body must be valid JSON' });
   }
 
+  if (error?.code === 'LIMIT_FILE_SIZE') {
+    return response.status(413).json({ error: 'Profile image must be 5 MB or smaller' });
+  }
+  if (error?.code?.startsWith('LIMIT_')) {
+    return response.status(400).json({ error: 'Only one profile image is allowed' });
+  }
+
   if (error?.message === 'Origin is not allowed by CORS') {
     return response.status(403).json({ error: error.message });
   }

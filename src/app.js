@@ -3,9 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { createAuthRouter } from './routes/auth.js';
-import { verifyAccessToken } from './auth.js';
+import { register, verifyAccessToken } from './auth.js';
 import { HttpError, errorHandler } from './errors.js';
 import { User } from './models/user.js';
+import { createCloudinaryProfileImageService } from './cloudinary-profile-images.js';
 import {
   registerPushToken,
   unregisterPushToken,
@@ -43,7 +44,9 @@ export function createApp(config, {
   emitMessage,
   notifyMessage,
   savePushToken = registerPushToken,
-  deletePushToken = unregisterPushToken
+  deletePushToken = unregisterPushToken,
+  profileImageService = createCloudinaryProfileImageService(config.cloudinaryUrl),
+  registerAccount = register
 } = {}) {
   const app = express();
   const authenticate = createAuthenticator(config);
@@ -69,7 +72,7 @@ export function createApp(config, {
       standardHeaders: 'draft-8',
       legacyHeaders: false
     }),
-    createAuthRouter(config, authenticate)
+    createAuthRouter(config, authenticate, { profileImageService, registerAccount })
   );
 
   app.get('/health', (_request, response) => {
@@ -78,7 +81,8 @@ export function createApp(config, {
 
   app.get('/api/users/me', authenticate, async (request, response, next) => {
     try {
-      const user = await User.findById(request.user.id).select('email username displayName');
+      const user = await User.findById(request.user.id)
+        .select('email username displayName profileImageUrl');
       if (!user) {
         throw new HttpError(401, 'Account no longer exists');
       }
@@ -86,7 +90,8 @@ export function createApp(config, {
         id: user.id,
         email: user.email,
         username: user.username,
-        displayName: user.displayName
+        displayName: user.displayName,
+        profileImageUrl: user.profileImageUrl ?? null
       });
     } catch (error) {
       next(error);

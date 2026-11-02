@@ -56,6 +56,7 @@ export function loadConfig() {
     turnUsername,
     turnPassword,
     firebaseServiceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() || null,
-    firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim() || null
+    firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim() || null,
+    cloudinaryUrl: process.env.CLOUDINARY_URL?.trim() || null
   };
 }

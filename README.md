@@ -17,7 +17,8 @@ are not implemented.
    characters, and explicit `CORS_ORIGIN` values. For local FCM delivery, set
    `FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json`. For hosted
    deployments, configure `FIREBASE_SERVICE_ACCOUNT_JSON` as a secret instead.
-   Do not use the example secrets in `.env.example`.
+   Set `CLOUDINARY_URL` to a rotated Cloudinary credential for profile photo
+   uploads. Do not use the example secrets in `.env.example`.
 4. Run `npm ci`, `npm test`, and `npm start`.
 5. Check `GET http://localhost:3000/health`.
 
@@ -49,6 +50,8 @@ Set these Render environment variables before deploying:
   Android apps do not require browser CORS access
 - `FIREBASE_SERVICE_ACCOUNT_JSON` — Firebase Admin service-account JSON
   contents, stored as a secret (never commit it)
+- `CLOUDINARY_URL` — Cloudinary connection URL, stored as a secret, for required
+  profile image uploads during account registration
 - Optionally `ACCESS_TOKEN_TTL=15m` and `REFRESH_TOKEN_DAYS=30`
 - For calls across restrictive NATs, configure `TURN_SERVER_URL`,
   `TURN_USERNAME`, and `TURN_PASSWORD` together. Use a TURN provider and
@@ -66,7 +69,9 @@ If you select the Node runtime instead of Docker, use:
 
 ## Implemented API
 
-- `POST /api/auth/register`
+- `POST /api/auth/register` — multipart form with `email`, `username`,
+  `displayName`, `password`, and required `profileImage` (JPEG, PNG, or WebP,
+  at most 5 MB); the backend stores the transformed image in Cloudinary
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout` (bearer access token required)

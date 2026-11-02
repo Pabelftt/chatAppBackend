@@ -9,7 +9,8 @@ function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
-    displayName: user.displayName
+    displayName: user.displayName,
+    profileImageUrl: user.profileImageUrl ?? null
   };
 }
 
@@ -51,7 +52,7 @@ export async function searchUsers(userId, query) {
       { displayNameSearch: { $regex: `^${safeQuery.toLowerCase()}` } }
     ]
   })
-    .select('username displayName')
+    .select('username displayName profileImageUrl')
     .sort({ username: 1 })
     .limit(20);
 
@@ -60,10 +61,10 @@ export async function searchUsers(userId, query) {
 
 export async function listConversations(userId) {
   const conversations = await Conversation.find({ participants: userId })
-    .populate('participants', 'username displayName')
+    .populate('participants', 'username displayName profileImageUrl')
     .populate({
       path: 'lastMessage',
-      populate: { path: 'senderId', select: 'username displayName' }
+      populate: { path: 'senderId', select: 'username displayName profileImageUrl' }
     })
     .sort({ updatedAt: -1 })
     .limit(100);
@@ -86,10 +87,10 @@ export async function createDirectConversation(userId, participantId) {
 
   const participantKey = [userId.toString(), participantId].sort().join(':');
   const existing = await Conversation.findOne({ participantKey })
-    .populate('participants', 'username displayName')
+    .populate('participants', 'username displayName profileImageUrl')
     .populate({
       path: 'lastMessage',
-      populate: { path: 'senderId', select: 'username displayName' }
+      populate: { path: 'senderId', select: 'username displayName profileImageUrl' }
     });
   if (existing) {
     return conversationDto(existing);
@@ -100,7 +101,7 @@ export async function createDirectConversation(userId, participantId) {
       participants: [new mongoose.Types.ObjectId(userId), otherUser._id],
       participantKey
     });
-    await conversation.populate('participants', 'username displayName');
+    await conversation.populate('participants', 'username displayName profileImageUrl');
     return conversationDto(conversation);
   } catch (error) {
     if (error?.code !== 11000) {
@@ -108,10 +109,10 @@ export async function createDirectConversation(userId, participantId) {
     }
 
     const conversation = await Conversation.findOne({ participantKey })
-      .populate('participants', 'username displayName')
+      .populate('participants', 'username displayName profileImageUrl')
       .populate({
         path: 'lastMessage',
-        populate: { path: 'senderId', select: 'username displayName' }
+        populate: { path: 'senderId', select: 'username displayName profileImageUrl' }
       });
     if (!conversation) {
       throw error;
@@ -128,7 +129,7 @@ async function getAuthorizedConversation(userId, conversationId) {
   const conversation = await Conversation.findOne({
     _id: conversationId,
     participants: userId
-  }).populate('participants', 'username displayName');
+  }).populate('participants', 'username displayName profileImageUrl');
   if (!conversation) {
     throw new HttpError(404, 'Conversation not found');
   }
@@ -143,7 +144,7 @@ export async function listMessages(userId, conversationId, rawLimit) {
   }
 
   const messages = await Message.find({ conversationId })
-    .populate('senderId', 'username displayName')
+    .populate('senderId', 'username displayName profileImageUrl')
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit);
   return messages.reverse().map(messageDto);

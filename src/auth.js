@@ -35,7 +35,8 @@ function publicUser(user) {
     id: user.id,
     email: user.email,
     username: user.username,
-    displayName: user.displayName
+    displayName: user.displayName,
+    profileImageUrl: user.profileImageUrl ?? null
   };
 }
 
@@ -43,16 +44,20 @@ function issueAccessToken(user, config) {
   return createAccessToken(user, config);
 }
 
-export async function register(body, config) {
+export async function register(body, config, profileImageUrl) {
   const errors = validateRegistration(body);
   if (errors.length > 0) {
     throw new HttpError(400, errors.join('; '));
+  }
+  if (typeof profileImageUrl !== 'string' || profileImageUrl.length === 0) {
+    throw new HttpError(400, 'A profile image is required');
   }
 
   const user = await User.create({
     email: normalizeEmail(body.email),
     username: body.username,
     displayName: body.displayName.trim(),
+    profileImageUrl,
     passwordHash: await bcrypt.hash(body.password, BCRYPT_ROUNDS)
   });
   const [accessToken, refreshToken] = await Promise.all([

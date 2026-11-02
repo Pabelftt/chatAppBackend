@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: 80
     },
+    profileImageUrl: {
+      type: String,
+      default: null,
+      maxlength: 2048
+    },
     usernameSearch: {
       type: String,
       select: false

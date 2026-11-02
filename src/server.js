@@ -24,6 +24,9 @@ const pushNotifier = createPushNotifier({ messaging: firebaseMessaging });
 if (!firebaseMessaging) {
   console.warn('Firebase push notifications are disabled; configure FIREBASE_SERVICE_ACCOUNT_JSON');
 }
+if (!config.cloudinaryUrl) {
+  console.warn('Profile photo uploads are disabled; configure CLOUDINARY_URL');
+}
 await mongoose.connect(config.mongoUri);
 await User.updateMany(
   {
@@ -77,9 +80,14 @@ io.on('connection', (socket) => {
   attachCallSignaling(io, socket, {
     getConversation: getConversationForParticipant,
     getPublicUser: async (id) => {
-      const user = await User.findById(id).select('username displayName');
+      const user = await User.findById(id).select('username displayName profileImageUrl');
       if (!user) throw new HttpError(404, 'User not found');
-      return { id: user.id, username: user.username, displayName: user.displayName };
+      return {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        profileImageUrl: user.profileImageUrl ?? null
+      };
     },
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
