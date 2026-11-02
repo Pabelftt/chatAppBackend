@@ -133,6 +133,41 @@ test('registration rejects unsupported images and reports missing Cloudinary con
   });
 });
 
+test('registration cleans up the uploaded image when an account already exists', async (context) => {
+  const destroyed = [];
+  const server = createServer(createApp(config, {
+    profileImageService: {
+      async upload() {
+        return { secureUrl: 'https://cloudinary.example/profile.png', publicId: 'profile/test' };
+      },
+      async destroy(publicId) {
+        destroyed.push(publicId);
+      }
+    },
+    async registerAccount() {
+      throw Object.assign(new Error('duplicate account'), { code: 11000 });
+    }
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  context.after(() => new Promise((resolve, reject) =>
+    server.close((error) => error ? reject(error) : resolve())
+  ));
+  const form = new FormData();
+  form.set('email', 'person@example.com');
+  form.set('username', 'person_1');
+  form.set('displayName', 'Person');
+  form.set('password', 'long-password-123');
+  form.set('profileImage', new Blob(['photo bytes'], { type: 'image/png' }), 'photo.png');
+
+  const response = await fetch(
+    `http://127.0.0.1:${server.address().port}/api/auth/register`,
+    { method: 'POST', body: form }
+  );
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: 'Email or username is already in use' });
+  assert.deepEqual(destroyed, ['profile/test']);
+});
+
 test('socket authentication only accepts valid signed access tokens', () => {
   const authenticate = createSocketAuthenticator(config);
   const token = jwt.sign({ sub: 'user-id' }, config.accessSecret, { algorithm: 'HS256' });

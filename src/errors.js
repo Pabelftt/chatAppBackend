@@ -17,7 +17,7 @@ export function errorHandler(error, _request, response, _next) {
   if (error?.code === 'LIMIT_FILE_SIZE') {
     return response.status(413).json({ error: 'Profile image must be 5 MB or smaller' });
   }
-  if (error?.code?.startsWith('LIMIT_')) {
+  if (typeof error?.code === 'string' && error.code.startsWith('LIMIT_')) {
     return response.status(400).json({ error: 'Only one profile image is allowed' });
   }
 
