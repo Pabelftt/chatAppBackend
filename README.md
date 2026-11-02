@@ -70,8 +70,9 @@ If you select the Node runtime instead of Docker, use:
 ## Implemented API
 
 - `POST /api/auth/register` — multipart form with `email`, `username`,
-  `displayName`, `password`, and required `profileImage` (JPEG, PNG, or WebP,
-  at most 5 MB); the backend stores the transformed image in Cloudinary
+  `displayName`, an 8–128 character `password`, and required `profileImage`
+  (JPEG, PNG, or WebP, at most 5 MB); the backend stores the transformed image
+  in Cloudinary
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout` (bearer access token required)

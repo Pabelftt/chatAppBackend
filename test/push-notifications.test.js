@@ -115,3 +115,40 @@ test('does not forward non-HTTPS profile image URLs to push notifications', asyn
   assert.deepEqual(sent.notification, { title: 'Message', body: 'Hello' });
   assert.equal(sent.data.imageUrl, undefined);
 });
+
+test('sends high-priority data-only messages so Android can render image and call actions', async () => {
+  let sent;
+  const notifier = createPushNotifier({
+    messaging: {
+      async sendEachForMulticast(message) {
+        sent = message;
+        return { responses: [{ success: true }] };
+      }
+    },
+    userModel: {
+      findById() {
+        return { select: async () => ({ fcmTokens: ['active-token-123456789'] }) };
+      }
+    }
+  });
+
+  await notifier.sendToUser('recipient-id', {
+    title: 'Incoming audio call',
+    body: 'Person',
+    imageUrl: 'https://res.cloudinary.com/example/profile.jpg',
+    dataOnly: true,
+    channelId: 'incoming_calls',
+    data: { type: 'call', callId: 'call-id', conversationId: 'conversation-id' }
+  });
+
+  assert.equal(sent.notification, undefined);
+  assert.equal(sent.android.priority, 'high');
+  assert.deepEqual(sent.data, {
+    type: 'call',
+    callId: 'call-id',
+    conversationId: 'conversation-id',
+    title: 'Incoming audio call',
+    body: 'Person',
+    imageUrl: 'https://res.cloudinary.com/example/profile.jpg'
+  });
+});

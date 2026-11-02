@@ -52,6 +52,7 @@ export function createPushNotifier({ messaging, userModel = User }) {
       body,
       data = {},
       imageUrl,
+      dataOnly = false,
       channelId = 'chat_messages'
     }) {
       if (!messaging) return;
@@ -61,23 +62,30 @@ export function createPushNotifier({ messaging, userModel = User }) {
 
       for (let offset = 0; offset < tokens.length; offset += 500) {
         const batch = tokens.slice(offset, offset + 500);
+        const notificationData = { ...data };
+        if (dataOnly) {
+          notificationData.title = title;
+          notificationData.body = body;
+        }
         const notification = { title, body };
         const androidNotification = { channelId, sound: 'default' };
-        const notificationData = { ...data };
         if (typeof imageUrl === 'string' && imageUrl.startsWith('https://')) {
           notification.imageUrl = imageUrl;
           androidNotification.imageUrl = imageUrl;
           notificationData.imageUrl = imageUrl;
         }
-        const result = await messaging.sendEachForMulticast({
+        const message = {
           tokens: batch,
-          notification,
           android: {
-            priority: 'high',
-            notification: androidNotification
+            priority: 'high'
           },
           data: notificationData
-        });
+        };
+        if (!dataOnly) {
+          message.notification = notification;
+          message.android.notification = androidNotification;
+        }
+        const result = await messaging.sendEachForMulticast(message);
         const invalidTokens = result.responses.flatMap((response, index) =>
           response.error?.code === 'messaging/registration-token-not-registered'
             ? [batch[index]]

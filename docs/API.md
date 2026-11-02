@@ -6,7 +6,7 @@ deployments must use HTTPS.
 ## Authentication
 
 - `POST /api/auth/register` — multipart form with `email`, `username`,
-  `displayName`, a 12–128 character `password`, and required `profileImage`
+  `displayName`, an 8–128 character `password`, and required `profileImage`
   (JPEG, PNG, or WebP, at most 5 MB). The photo is stored in Cloudinary.
 - `POST /api/auth/login` — authenticate with `email` and `password`.
 - `POST /api/auth/refresh` — rotate a single-use `refreshToken`.
