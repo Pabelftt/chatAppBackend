@@ -47,7 +47,13 @@ export async function unregisterPushToken(userId, token) {
 
 export function createPushNotifier({ messaging, userModel = User }) {
   return {
-    async sendToUser(userId, { title, body, data = {}, channelId = 'chat_messages' }) {
+    async sendToUser(userId, {
+      title,
+      body,
+      data = {},
+      imageUrl,
+      channelId = 'chat_messages'
+    }) {
       if (!messaging) return;
       const user = await userModel.findById(userId).select('+fcmTokens');
       const tokens = user?.fcmTokens ?? [];
@@ -55,14 +61,22 @@ export function createPushNotifier({ messaging, userModel = User }) {
 
       for (let offset = 0; offset < tokens.length; offset += 500) {
         const batch = tokens.slice(offset, offset + 500);
+        const notification = { title, body };
+        const androidNotification = { channelId, sound: 'default' };
+        const notificationData = { ...data };
+        if (typeof imageUrl === 'string' && imageUrl.startsWith('https://')) {
+          notification.imageUrl = imageUrl;
+          androidNotification.imageUrl = imageUrl;
+          notificationData.imageUrl = imageUrl;
+        }
         const result = await messaging.sendEachForMulticast({
           tokens: batch,
-          notification: { title, body },
+          notification,
           android: {
             priority: 'high',
-            notification: { channelId, sound: 'default' }
+            notification: androidNotification
           },
-          data
+          data: notificationData
         });
         const invalidTokens = result.responses.flatMap((response, index) =>
           response.error?.code === 'messaging/registration-token-not-registered'

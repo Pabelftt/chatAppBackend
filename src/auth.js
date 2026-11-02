@@ -44,7 +44,7 @@ function issueAccessToken(user, config) {
   return createAccessToken(user, config);
 }
 
-export async function register(body, config, profileImageUrl) {
+export async function register(body, config, profileImageUrl, profileImagePublicId) {
   const errors = validateRegistration(body);
   if (errors.length > 0) {
     throw new HttpError(400, errors.join('; '));
@@ -58,6 +58,7 @@ export async function register(body, config, profileImageUrl) {
     username: body.username,
     displayName: body.displayName.trim(),
     profileImageUrl,
+    profileImagePublicId,
     passwordHash: await bcrypt.hash(body.password, BCRYPT_ROUNDS)
   });
   const [accessToken, refreshToken] = await Promise.all([

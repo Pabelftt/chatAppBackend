@@ -168,6 +168,63 @@ test('registration cleans up the uploaded image when an account already exists',
   assert.deepEqual(destroyed, ['profile/test']);
 });
 
+test('authenticated profile photo updates replace the stored image and clean up the old one', async (context) => {
+  const destroyed = [];
+  const user = {
+    id: 'user-id',
+    email: 'person@example.com',
+    username: 'person_1',
+    displayName: 'Person',
+    profileImageUrl: 'https://cloudinary.example/old.png',
+    profileImagePublicId: 'profile/old',
+    async save() {}
+  };
+  const server = createServer(createApp(config, {
+    profileImageService: {
+      async upload(buffer) {
+        assert.equal(buffer.toString(), 'new photo');
+        return { secureUrl: 'https://cloudinary.example/new.png', publicId: 'profile/new' };
+      },
+      async destroy(publicId) {
+        destroyed.push(publicId);
+      }
+    },
+    userModel: {
+      findById(id) {
+        assert.equal(id, 'user-id');
+        return { select: async () => user };
+      }
+    }
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  context.after(() => new Promise((resolve, reject) =>
+    server.close((error) => error ? reject(error) : resolve())
+  ));
+  const form = new FormData();
+  form.set('profileImage', new Blob(['new photo'], { type: 'image/png' }), 'photo.png');
+  const url = `http://127.0.0.1:${server.address().port}/api/users/me/profile-image`;
+  const unauthorized = await fetch(url, { method: 'PATCH', body: form });
+  assert.equal(unauthorized.status, 401);
+
+  const authorization = `Bearer ${jwt.sign(
+    { sub: 'user-id' },
+    config.accessSecret,
+    { algorithm: 'HS256' }
+  )}`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: { authorization },
+    body: form
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    profileImageUrl: 'https://cloudinary.example/new.png'
+  });
+  assert.equal(user.profileImageUrl, 'https://cloudinary.example/new.png');
+  assert.equal(user.profileImagePublicId, 'profile/new');
+  assert.deepEqual(destroyed, ['profile/old']);
+});
+
 test('socket authentication only accepts valid signed access tokens', () => {
   const authenticate = createSocketAuthenticator(config);
   const token = jwt.sign({ sub: 'user-id' }, config.accessSecret, { algorithm: 'HS256' });

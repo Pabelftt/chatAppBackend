@@ -76,6 +76,8 @@ If you select the Node runtime instead of Docker, use:
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout` (bearer access token required)
 - `GET /api/users/me` (bearer access token required)
+- `PATCH /api/users/me/profile-image` — replace the authenticated account's
+  profile photo (JPEG, PNG, or WebP, up to 5 MB)
 - `GET /api/users/search?q=<query>` (bearer access token required)
 - `GET /api/conversations` (bearer access token required)
 - `POST /api/conversations` (bearer access token required)

@@ -5,14 +5,16 @@ deployments must use HTTPS.
 
 ## Authentication
 
-- `POST /api/auth/register` — create an account with `email`, `username`,
-  `displayName`, and a 12–128 character `password`.
+- `POST /api/auth/register` — multipart form with `email`, `username`,
+  `displayName`, a 12–128 character `password`, and required `profileImage`
+  (JPEG, PNG, or WebP, at most 5 MB). The photo is stored in Cloudinary.
 - `POST /api/auth/login` — authenticate with `email` and `password`.
 - `POST /api/auth/refresh` — rotate a single-use `refreshToken`.
 - `POST /api/auth/logout` — authenticate with a bearer access token and submit
   the current `refreshToken` to revoke that device session.
 
 Register, login, and refresh return `{ user, accessToken, refreshToken }`.
+Public user profiles include `profileImageUrl` (nullable for older accounts).
 Access tokens are signed using HS256 and configured with a short expiry.
 Refresh tokens are random, single-use, rotated on refresh, and stored as
 SHA-256 hashes with a MongoDB TTL index.
@@ -20,6 +22,12 @@ SHA-256 hashes with a MongoDB TTL index.
 ## Profile
 
 - `GET /api/users/me` — return the authenticated account's public profile.
+- `PATCH /api/users/me/profile-image` — authenticated multipart upload with a
+  required `profileImage`; replaces the Cloudinary photo and returns its
+  `profileImageUrl`.
+- `PATCH /api/users/me/profile-image` — authenticated multipart upload with a
+  required `profileImage` (JPEG, PNG, or WebP, at most 5 MB); replaces the
+  Cloudinary profile photo and returns its HTTPS `profileImageUrl`.
 - `GET /api/users/search?q=<name-or-username>` — search up to 20 public
   profiles; query must contain 2–50 characters.
 
@@ -54,7 +62,8 @@ Connect Socket.IO with the access token in the handshake auth object:
   `typing:stopped`. Typing automatically expires after five seconds.
 - `POST /api/users/me/push-token` and `DELETE /api/users/me/push-token` —
   register or remove the authenticated device's Firebase Cloud Messaging token.
-  The server sends message and incoming-call notifications to registered devices.
+  The server sends message and incoming-call notifications, including the
+  sender's profile photo when one is available.
 
 Set `FIREBASE_SERVICE_ACCOUNT_JSON` in the backend environment to the JSON
 contents of a Firebase Admin service-account credential, or use

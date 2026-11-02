@@ -58,3 +58,60 @@ test('does not contact Firebase when push delivery is not configured', async () 
   const notifier = createPushNotifier({ messaging: null });
   await notifier.sendToUser('recipient-id', { title: 'Call', body: 'Caller' });
 });
+
+test('includes HTTPS profile photos for Android rich push notifications', async () => {
+  let sent;
+  const notifier = createPushNotifier({
+    messaging: {
+      async sendEachForMulticast(message) {
+        sent = message;
+        return { responses: [{ success: true }] };
+      }
+    },
+    userModel: {
+      findById() {
+        return { select: async () => ({ fcmTokens: ['active-token-123456789'] }) };
+      }
+    }
+  });
+
+  await notifier.sendToUser('recipient-id', {
+    title: 'Message from Person',
+    body: 'Hello',
+    imageUrl: 'https://res.cloudinary.com/example/profile.jpg',
+    data: { type: 'message', conversationId: 'conversation-id' }
+  });
+
+  assert.deepEqual(sent.notification, {
+    title: 'Message from Person',
+    body: 'Hello',
+    imageUrl: 'https://res.cloudinary.com/example/profile.jpg'
+  });
+  assert.equal(sent.android.notification.imageUrl, 'https://res.cloudinary.com/example/profile.jpg');
+  assert.equal(sent.data.imageUrl, 'https://res.cloudinary.com/example/profile.jpg');
+});
+
+test('does not forward non-HTTPS profile image URLs to push notifications', async () => {
+  let sent;
+  const notifier = createPushNotifier({
+    messaging: {
+      async sendEachForMulticast(message) {
+        sent = message;
+        return { responses: [{ success: true }] };
+      }
+    },
+    userModel: {
+      findById() {
+        return { select: async () => ({ fcmTokens: ['active-token-123456789'] }) };
+      }
+    }
+  });
+
+  await notifier.sendToUser('recipient-id', {
+    title: 'Message',
+    body: 'Hello',
+    imageUrl: 'http://example.test/profile.jpg'
+  });
+  assert.deepEqual(sent.notification, { title: 'Message', body: 'Hello' });
+  assert.equal(sent.data.imageUrl, undefined);
+});

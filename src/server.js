@@ -57,6 +57,7 @@ const httpServer = createServer(createApp(config, {
     await Promise.all(recipientIds.map((recipientId) => pushNotifier.sendToUser(recipientId, {
       title: `Message from ${message.sender.displayName}`,
       body: message.content.slice(0, 160),
+      imageUrl: message.sender.profileImageUrl,
       channelId: 'chat_messages',
       data: {
         type: 'message',
@@ -105,6 +106,7 @@ io.on('connection', (socket) => {
       pushNotifier.sendToUser(recipientId, {
         title: `Incoming ${mediaType} call`,
         body: caller.displayName,
+        imageUrl: caller.profileImageUrl,
         channelId: 'incoming_calls',
         data: {
           type: 'call',

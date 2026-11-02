@@ -1,28 +1,15 @@
 import { Router } from 'express';
-import multer from 'multer';
 import { login, register, rotateRefreshToken, revokeRefreshToken } from '../auth.js';
 import { HttpError } from '../errors.js';
 import { validateRegistration } from '../auth-validation.js';
-
-const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
-const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+import { createProfileImageUpload } from '../profile-image-upload.js';
 
 export function createAuthRouter(config, authenticate, {
   profileImageService,
   registerAccount = register
 }) {
   const router = Router();
-  const uploadProfileImage = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: MAX_PROFILE_IMAGE_BYTES, files: 1 },
-    fileFilter(_request, file, callback) {
-      if (!PROFILE_IMAGE_TYPES.has(file.mimetype)) {
-        callback(new HttpError(400, 'Profile image must be JPEG, PNG, or WebP'));
-        return;
-      }
-      callback(null, true);
-    }
-  }).single('profileImage');
+  const uploadProfileImage = createProfileImageUpload();
 
   router.post('/register', uploadProfileImage, async (request, response, next) => {
     if (!request.file) {
@@ -45,7 +32,12 @@ export function createAuthRouter(config, authenticate, {
 
     let result;
     try {
-      result = await registerAccount(request.body, config, uploadedImage.secureUrl);
+      result = await registerAccount(
+        request.body,
+        config,
+        uploadedImage.secureUrl,
+        uploadedImage.publicId
+      );
     } catch (error) {
       if (uploadedImage?.publicId) {
         try {

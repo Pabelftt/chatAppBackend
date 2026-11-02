@@ -7,6 +7,7 @@ import { register, verifyAccessToken } from './auth.js';
 import { HttpError, errorHandler } from './errors.js';
 import { User } from './models/user.js';
 import { createCloudinaryProfileImageService } from './cloudinary-profile-images.js';
+import { createProfileImageUpload } from './profile-image-upload.js';
 import {
   registerPushToken,
   unregisterPushToken,
@@ -46,7 +47,8 @@ export function createApp(config, {
   savePushToken = registerPushToken,
   deletePushToken = unregisterPushToken,
   profileImageService = createCloudinaryProfileImageService(config.cloudinaryUrl),
-  registerAccount = register
+  registerAccount = register,
+  userModel = User
 } = {}) {
   const app = express();
   const authenticate = createAuthenticator(config);
@@ -81,7 +83,7 @@ export function createApp(config, {
 
   app.get('/api/users/me', authenticate, async (request, response, next) => {
     try {
-      const user = await User.findById(request.user.id)
+      const user = await userModel.findById(request.user.id)
         .select('email username displayName profileImageUrl');
       if (!user) {
         throw new HttpError(401, 'Account no longer exists');
@@ -97,6 +99,54 @@ export function createApp(config, {
       next(error);
     }
   });
+
+  app.patch(
+    '/api/users/me/profile-image',
+    authenticate,
+    createProfileImageUpload(),
+    async (request, response, next) => {
+      if (!request.file) {
+        next(new HttpError(400, 'A profile image is required'));
+        return;
+      }
+
+      let uploadedImage;
+      try {
+        uploadedImage = await profileImageService.upload(request.file.buffer);
+      } catch (error) {
+        next(error);
+        return;
+      }
+
+      try {
+        const user = await userModel.findById(request.user.id).select('+profileImagePublicId');
+        if (!user) {
+          throw new HttpError(401, 'Account no longer exists');
+        }
+        const previousPublicId = user.profileImagePublicId;
+        user.profileImageUrl = uploadedImage.secureUrl;
+        user.profileImagePublicId = uploadedImage.publicId;
+        await user.save();
+
+        if (previousPublicId && previousPublicId !== uploadedImage.publicId) {
+          try {
+            await profileImageService.destroy(previousPublicId);
+          } catch {
+            console.warn('Unable to remove previous Cloudinary profile image');
+          }
+        }
+
+        response.json({ profileImageUrl: user.profileImageUrl });
+      } catch (error) {
+        try {
+          await profileImageService.destroy(uploadedImage.publicId);
+        } catch {
+          console.error('Unable to remove unused Cloudinary profile image');
+        }
+        next(error);
+      }
+    }
+  );
 
   app.post('/api/users/me/push-token', authenticate, async (request, response, next) => {
     try {
