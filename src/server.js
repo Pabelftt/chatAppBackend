@@ -4,12 +4,26 @@ import { Server } from 'socket.io';
 import { createApp, createSocketAuthenticator } from './app.js';
 import { attachCallSignaling } from './call-signaling.js';
 import { attachTypingSignaling } from './typing-signaling.js';
-import { getConversationForParticipant, createMessage } from './chat-service.js';
+import { createFirebaseMessaging } from './firebase-admin.js';
+import { createPushNotifier } from './push-notifications.js';
+import {
+  conversationParticipantId,
+  getConversationForParticipant,
+  createMessage
+} from './chat-service.js';
 import { loadConfig } from './config.js';
 import { HttpError } from './errors.js';
 import { User } from './models/user.js';
 
 const config = loadConfig();
+const firebaseMessaging = createFirebaseMessaging(
+  config.firebaseServiceAccountJson,
+  config.firebaseServiceAccountPath
+);
+const pushNotifier = createPushNotifier({ messaging: firebaseMessaging });
+if (!firebaseMessaging) {
+  console.warn('Firebase push notifications are disabled; configure FIREBASE_SERVICE_ACCOUNT_JSON');
+}
 await mongoose.connect(config.mongoUri);
 await User.updateMany(
   {
@@ -32,6 +46,20 @@ const httpServer = createServer(createApp(config, {
     for (const participantId of participantIds) {
       io?.to(`user:${participantId}`).emit('message:new', message);
     }
+  },
+  async notifyMessage(message, participantIds) {
+    const recipientIds = participantIds.filter((participantId) =>
+      participantId !== message.sender.id
+    );
+    await Promise.all(recipientIds.map((recipientId) => pushNotifier.sendToUser(recipientId, {
+      title: `Message from ${message.sender.displayName}`,
+      body: message.content.slice(0, 160),
+      channelId: 'chat_messages',
+      data: {
+        type: 'message',
+        conversationId: message.conversationId
+      }
+    })));
   }
 }));
 io = new Server(httpServer, {
@@ -64,7 +92,18 @@ io.on('connection', (socket) => {
         : [])
     ],
     callRegistry: activeCalls,
-    callAttempts
+    callAttempts,
+    notifyCall: ({ recipientId, caller, conversationId, callId, mediaType }) =>
+      pushNotifier.sendToUser(recipientId, {
+        title: `Incoming ${mediaType} call`,
+        body: caller.displayName,
+        channelId: 'incoming_calls',
+        data: {
+          type: 'call',
+          conversationId,
+          callId
+        }
+      })
   });
   const recentMessages = [];
 
@@ -103,8 +142,20 @@ io.on('connection', (socket) => {
         message.conversationId
       );
       for (const participant of conversation.participants) {
-        io.to(`user:${participant.toString()}`).emit('message:new', message);
+        io.to(`user:${conversationParticipantId(participant)}`).emit('message:new', message);
       }
+      const recipientIds = conversation.participants
+        .map(conversationParticipantId)
+        .filter((participantId) => participantId !== message.sender.id);
+      void Promise.all(recipientIds.map((recipientId) => pushNotifier.sendToUser(recipientId, {
+        title: `Message from ${message.sender.displayName}`,
+        body: message.content.slice(0, 160),
+        channelId: 'chat_messages',
+        data: {
+          type: 'message',
+          conversationId: message.conversationId
+        }
+      }))).catch((error) => console.error('Unable to send message push notification', error));
       acknowledge({ ok: true, message });
     } catch (error) {
       acknowledge({

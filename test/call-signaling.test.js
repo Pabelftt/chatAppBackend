@@ -4,6 +4,8 @@ import { attachCallSignaling } from '../src/call-signaling.js';
 
 function createHarness(registry = new Map()) {
   const emitted = [];
+  const socketEvents = [];
+  const notifiedCalls = [];
   const callAttempts = new Map();
   const io = {
     to(room) {
@@ -16,6 +18,8 @@ function createHarness(registry = new Map()) {
   };
   return {
     emitted,
+    socketEvents,
+    notifiedCalls,
     registry,
     attach(userId) {
       const handlers = new Map();
@@ -23,6 +27,9 @@ function createHarness(registry = new Map()) {
         data: { userId },
         on(event, handler) {
           handlers.set(event, handler);
+        },
+        emit(event, payload) {
+          socketEvents.push({ event, payload });
         }
       }, {
         getConversation: async (id, conversationId) => {
@@ -39,7 +46,8 @@ function createHarness(registry = new Map()) {
         getPublicUser: async (id) => ({ id, displayName: 'Caller', username: 'caller' }),
         iceServers: [{ urls: 'stun:example.org' }],
         callRegistry: registry,
-        callAttempts
+        callAttempts,
+        notifyCall: async (notification) => notifiedCalls.push(notification)
       });
       return handlers;
     }
@@ -75,6 +83,20 @@ test('routes an authenticated offer and answer to the other participant', async 
   assert.equal(incoming.room, 'user:recipient');
   assert.equal(incoming.payload.offer, offer);
   assert.equal(incoming.payload.iceServers.length, 1);
+  assert.deepEqual(harness.notifiedCalls, [{
+    recipientId: 'recipient',
+    caller: { id: 'caller', displayName: 'Caller', username: 'caller' },
+    conversationId: 'conversation-1',
+    callId: startResult.callId,
+    mediaType: 'video'
+  }]);
+  await recipient.get('call:resume')({}, (response) => {
+    assert.deepEqual(response, { ok: true, resumed: 1 });
+  });
+  assert.deepEqual(harness.socketEvents, [{
+    event: 'call:incoming',
+    payload: incoming.payload
+  }]);
   let duplicateResult;
   await caller.get('call:start')(
     { conversationId: 'conversation-1', mediaType: 'audio', offer },

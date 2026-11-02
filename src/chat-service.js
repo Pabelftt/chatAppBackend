@@ -32,6 +32,12 @@ export function conversationDto(conversation) {
   };
 }
 
+export function conversationParticipantId(participant) {
+  if (participant?._id) return participant._id.toString();
+  if (typeof participant?.id === 'string') return participant.id;
+  return participant.toString();
+}
+
 export async function searchUsers(userId, query) {
   const safeQuery = validateSearchQuery(query);
   if (!safeQuery) {

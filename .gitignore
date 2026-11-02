@@ -1,7 +1,8 @@
 .env
 .env.*
 !.env.example
+firebase-service-account.json
+service-account*.json
 node_modules/
 coverage/
 dist/
-

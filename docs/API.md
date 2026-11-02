@@ -52,6 +52,14 @@ Connect Socket.IO with the access token in the handshake auth object:
 - `typing:start` / `typing:stop` — `{ "conversationId": "..." }`; membership
   is checked and the other participant receives `typing:started` /
   `typing:stopped`. Typing automatically expires after five seconds.
+- `POST /api/users/me/push-token` and `DELETE /api/users/me/push-token` —
+  register or remove the authenticated device's Firebase Cloud Messaging token.
+  The server sends message and incoming-call notifications to registered devices.
+
+Set `FIREBASE_SERVICE_ACCOUNT_JSON` in the backend environment to the JSON
+contents of a Firebase Admin service-account credential, or use
+`FIREBASE_SERVICE_ACCOUNT_PATH` for a local file. Do not commit this credential.
+Push delivery is disabled until one of these values is configured.
 
 The socket event is limited to 30 sends per 10 seconds per connection. REST
 message sends also fan out as `message:new`.
@@ -71,17 +79,18 @@ with the offer and ICE servers.
 The recipient responds with `call:accept` and
 `{ "callId": "...", "answer": { "type": "answer", "sdp": "..." } }`.
 `call:ice` exchanges bounded ICE candidates; `call:decline` and `call:end`
-terminate the call. Call signaling and participant authorization are handled
-by the backend; WebRTC transports audio/video between the two devices, directly
-or through TURN.
+terminate the call. `call:resume` replays a still-ringing incoming call after
+the recipient reconnects from its notification. Call signaling and participant
+authorization are handled by the backend; WebRTC transports audio/video
+between the two devices, directly or through TURN.
 
 Configure `TURN_SERVER_URL`, `TURN_USERNAME`, and `TURN_PASSWORD` together for
 networks that require TURN relaying. Use short-lived credentials for
-production. Incoming calls are delivered only to active app connections;
-background ringing and FCM notifications are not implemented.
+production. Message and incoming-call notifications require an FCM token from
+the Android client and Firebase Admin credentials on the backend.
 
 ## Not implemented yet
 
-Devices/FCM and background call notifications, location, groups, attachments,
+Location, groups, attachments,
 offline Android sending, delivery/read receipts, and E2EE are future phases,
 not available features.

@@ -32,6 +32,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false
     },
+    fcmTokens: {
+      type: [String],
+      default: [],
+      select: false
+    },
     passwordHash: {
       type: String,
       required: true,
@@ -43,6 +48,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ usernameSearch: 1 });
 userSchema.index({ displayNameSearch: 1 });
+userSchema.index({ fcmTokens: 1 });
 userSchema.pre('validate', function updateSearchFields() {
   if (this.username !== undefined) {
     this.usernameSearch = this.username.toLowerCase();

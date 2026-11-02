@@ -7,8 +7,14 @@ import { verifyAccessToken } from './auth.js';
 import { HttpError, errorHandler } from './errors.js';
 import { User } from './models/user.js';
 import {
+  registerPushToken,
+  unregisterPushToken,
+  validatePushToken
+} from './push-notifications.js';
+import {
   createDirectConversation,
   createMessage,
+  conversationParticipantId,
   getConversationForParticipant,
   listConversations,
   listMessages,
@@ -33,7 +39,12 @@ function createAuthenticator(config) {
   };
 }
 
-export function createApp(config, { emitMessage } = {}) {
+export function createApp(config, {
+  emitMessage,
+  notifyMessage,
+  savePushToken = registerPushToken,
+  deletePushToken = unregisterPushToken
+} = {}) {
   const app = express();
   const authenticate = createAuthenticator(config);
 
@@ -77,6 +88,38 @@ export function createApp(config, { emitMessage } = {}) {
         username: user.username,
         displayName: user.displayName
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/users/me/push-token', authenticate, async (request, response, next) => {
+    try {
+      const token = validatePushToken(request.body?.token);
+      if (!token) {
+        throw new HttpError(400, 'A valid push token is required');
+      }
+      const registered = await savePushToken(request.user.id, token);
+      if (!registered) {
+        throw new HttpError(401, 'Account no longer exists');
+      }
+      response.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete('/api/users/me/push-token', authenticate, async (request, response, next) => {
+    try {
+      const token = validatePushToken(request.body?.token);
+      if (!token) {
+        throw new HttpError(400, 'A valid push token is required');
+      }
+      const registered = await deletePushToken(request.user.id, token);
+      if (!registered) {
+        throw new HttpError(401, 'Account no longer exists');
+      }
+      response.status(204).end();
     } catch (error) {
       next(error);
     }
@@ -130,6 +173,11 @@ export function createApp(config, { emitMessage } = {}) {
         request.body?.content
       );
       const conversation = await getConversationForParticipant(request.user.id, message.conversationId);
+      void notifyMessage?.(
+        message,
+        conversation.participants.map(conversationParticipantId)
+      )
+        ?.catch((error) => console.error('Unable to send message push notification', error));
       emitMessage?.(
         message.conversationId,
         message,

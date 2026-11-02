@@ -54,6 +54,8 @@ export function loadConfig() {
     allowedOrigins,
     turnServerUrl,
     turnUsername,
-    turnPassword
+    turnPassword,
+    firebaseServiceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() || null,
+    firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim() || null
   };
 }

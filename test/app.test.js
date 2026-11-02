@@ -57,3 +57,59 @@ test('socket authentication only accepts valid signed access tokens', () => {
     assert.match(error.message, /Authentication required/);
   });
 });
+
+test('push-token endpoints require authentication and validate the token', async (context) => {
+  const saved = [];
+  const removed = [];
+  const server = createServer(createApp(config, {
+    async savePushToken(userId, token) {
+      saved.push({ userId, token });
+      return true;
+    },
+    async deletePushToken(userId, token) {
+      removed.push({ userId, token });
+      return true;
+    }
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  context.after(() => new Promise((resolve, reject) =>
+    server.close((error) => error ? reject(error) : resolve())
+  ));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const authorization = `Bearer ${jwt.sign(
+    { sub: 'user-id' },
+    config.accessSecret,
+    { algorithm: 'HS256' }
+  )}`;
+
+  const unauthorized = await fetch(`${origin}/api/users/me/push-token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: 'valid-token-12345678901234567890' })
+  });
+  assert.equal(unauthorized.status, 401);
+
+  const invalid = await fetch(`${origin}/api/users/me/push-token`, {
+    method: 'POST',
+    headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ token: 'short' })
+  });
+  assert.equal(invalid.status, 400);
+
+  const token = 'valid-token-12345678901234567890';
+  const registered = await fetch(`${origin}/api/users/me/push-token`, {
+    method: 'POST',
+    headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  assert.equal(registered.status, 204);
+  assert.deepEqual(saved, [{ userId: 'user-id', token }]);
+
+  const unregistered = await fetch(`${origin}/api/users/me/push-token`, {
+    method: 'DELETE',
+    headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  assert.equal(unregistered.status, 204);
+  assert.deepEqual(removed, [{ userId: 'user-id', token }]);
+});

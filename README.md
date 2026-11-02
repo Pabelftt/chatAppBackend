@@ -5,16 +5,19 @@ login, short-lived JWT access tokens, rotating refresh tokens, direct
 conversations, persisted text messages, participant-authorized REST APIs, and
 authenticated Socket.IO delivery and authenticated WebRTC call signaling.
 User search uses normalized, indexed username and display-name prefixes.
-FCM/background call notifications, location sharing, groups, attachments, and
-E2EE are not implemented.
+Firebase Cloud Messaging sends message and incoming-call notifications to
+registered Android devices. Location sharing, groups, attachments, and E2EE
+are not implemented.
 
 ## Run locally
 
 1. Install Node.js 20+ and MongoDB 7+.
 2. Copy `.env.example` to `.env`.
 3. Configure `MONGODB_URI`, two distinct random JWT secrets of at least 32
-   characters, and explicit `CORS_ORIGIN` values. Do not use the example
-   secrets in `.env.example`.
+   characters, and explicit `CORS_ORIGIN` values. For local FCM delivery, set
+   `FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json`. For hosted
+   deployments, configure `FIREBASE_SERVICE_ACCOUNT_JSON` as a secret instead.
+   Do not use the example secrets in `.env.example`.
 4. Run `npm ci`, `npm test`, and `npm start`.
 5. Check `GET http://localhost:3000/health`.
 
@@ -44,6 +47,8 @@ Set these Render environment variables before deploying:
   random secrets (at least 32 characters)
 - `CORS_ORIGIN` — comma-separated, explicitly permitted browser origins; native
   Android apps do not require browser CORS access
+- `FIREBASE_SERVICE_ACCOUNT_JSON` — Firebase Admin service-account JSON
+  contents, stored as a secret (never commit it)
 - Optionally `ACCESS_TOKEN_TTL=15m` and `REFRESH_TOKEN_DAYS=30`
 - For calls across restrictive NATs, configure `TURN_SERVER_URL`,
   `TURN_USERNAME`, and `TURN_PASSWORD` together. Use a TURN provider and
@@ -71,6 +76,8 @@ If you select the Node runtime instead of Docker, use:
 - `POST /api/conversations` (bearer access token required)
 - `GET /api/conversations/:conversationId/messages` (bearer access token required)
 - `POST /api/conversations/:conversationId/messages` (bearer access token required)
+- `POST /api/users/me/push-token` and
+  `DELETE /api/users/me/push-token` (bearer access token required)
 - `GET /health`
 
 Socket.IO clients authenticate with an access token in the connection `auth`
@@ -79,11 +86,12 @@ a message is persisted. Realtime delivery requires an active connection;
 conversation and message history remain available through the REST APIs.
 
 Authenticated sockets also support `call:prepare`, `call:start`, `call:accept`,
-`call:decline`, `call:end`, and `call:ice`. The backend checks conversation membership and
-routes call setup, ICE candidates, and TURN configuration only to participants.
-WebRTC carries audio/video peer-to-peer or through a configured TURN relay.
-The app must be open on both devices; background ringing and FCM notifications
-are not implemented.
+`call:decline`, `call:end`, `call:ice`, and `call:resume`. The backend checks
+conversation membership and routes call setup, ICE candidates, and TURN
+configuration only to participants. WebRTC carries audio/video peer-to-peer
+or through a configured TURN relay. FCM notifies recipients of new messages
+and incoming calls; call resumption requires the app to reconnect while the
+call is still ringing.
 
 See [`API.md`](../docs/API.md) and [`SECURITY.md`](../docs/SECURITY.md).
 The Android client is maintained in the separate `chatAppAndroid` repository.

@@ -28,6 +28,7 @@ export function attachCallSignaling(io, socket, {
   iceServers,
   callRegistry,
   callAttempts,
+  notifyCall,
   now = Date.now
 }) {
   const registry = callRegistry ?? new Map();
@@ -90,6 +91,10 @@ export function attachCallSignaling(io, socket, {
         conversationId: conversation.id,
         callerId: userId,
         recipientId: recipient.id,
+        caller: null,
+        offer: payload.offer,
+        mediaType: payload.mediaType,
+        iceServers,
         status: 'starting',
         createdAt: now(),
         timer: null,
@@ -106,6 +111,7 @@ export function attachCallSignaling(io, socket, {
         io.to(`user:${call.recipientId}`).emit('call:ended', { callId, reason: 'timeout' });
       }, RING_TIMEOUT_MS);
       call.timer.unref?.();
+      call.caller = caller;
       io.to(`user:${recipient.id}`).emit('call:incoming', {
         callId,
         conversationId: conversation.id,
@@ -114,6 +120,13 @@ export function attachCallSignaling(io, socket, {
         offer: payload.offer,
         iceServers
       });
+      void notifyCall?.({
+        recipientId: recipient.id,
+        caller,
+        conversationId: conversation.id,
+        callId,
+        mediaType: payload.mediaType
+      })?.catch((error) => console.error('Unable to send incoming-call push notification', error));
       acknowledge(callback, { ok: true, callId });
     } catch (error) {
       if (startingCallId && registry.get(startingCallId)?.status === 'starting') {
@@ -124,6 +137,26 @@ export function attachCallSignaling(io, socket, {
         error: error?.status === 404 ? 'Conversation not found' : 'Unable to start call'
       });
     }
+  });
+
+  socket.on('call:resume', (_payload, callback) => {
+    let resumed = 0;
+    for (const call of registry.values()) {
+      if (call.recipientId !== userId || call.status !== 'ringing'
+        || now() - call.createdAt >= RING_TIMEOUT_MS) {
+        continue;
+      }
+      socket.emit('call:incoming', {
+        callId: call.callId,
+        conversationId: call.conversationId,
+        caller: call.caller,
+        mediaType: call.mediaType,
+        offer: call.offer,
+        iceServers: call.iceServers
+      });
+      resumed += 1;
+    }
+    acknowledge(callback, { ok: true, resumed });
   });
 
   socket.on('call:accept', (payload, callback) => {
