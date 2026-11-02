@@ -236,7 +236,7 @@ export function createApp(config, {
       emitMessage?.(
         message.conversationId,
         message,
-        conversation.participants.map((participant) => participant.toString())
+        conversation.participants.map(conversationParticipantId)
       );
       response.status(201).json(message);
     } catch (error) {

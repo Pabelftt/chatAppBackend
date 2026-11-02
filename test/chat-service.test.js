@@ -8,4 +8,8 @@ test('conversation participant IDs work for populated users and ObjectIds', () =
   assert.equal(conversationParticipantId({ _id: objectId }), objectId.toString());
   assert.equal(conversationParticipantId({ id: objectId.toString() }), objectId.toString());
   assert.equal(conversationParticipantId(objectId), objectId.toString());
+  assert.equal(
+    conversationParticipantId({ _id: objectId, toString: () => '[object Object]' }),
+    objectId.toString()
+  );
 });
